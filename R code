@@ -1,0 +1,84 @@
+# Load necessary libraries
+library(ggplot2)
+library(cowplot)
+library(zoo)
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Create normally-distributed variable with 25% missing values
+x <- rnorm(100)
+x[sample(1:100, 25)] <- NA
+
+# Perform mean-imputation
+x_imputed <- ifelse(is.na(x), mean(x, na.rm = TRUE), x)
+
+# Combine original and imputed variables into a data frame
+df <- data.frame(x = x, x_imputed = x_imputed)
+
+# Create histogram of original and imputed variables side-by-side using ggplot and cowplot
+hist1 <- ggplot(df, aes(x = x)) + geom_histogram(bins = 10, fill = "blue", alpha = 0.5) + ggtitle("Original Variable")
+hist2 <- ggplot(df, aes(x = x_imputed)) + geom_histogram(bins = 10, fill = "red", alpha = 0.5) + ggtitle("Imputed Variable")
+
+# Create line graph of original variable
+line1 <- ggplot(df, aes(x = 1:length(x), y = x)) +
+  geom_line(color = "blue") +
+  ggtitle("Original Variable")
+
+# Create line graph of imputed variable
+line2 <- ggplot(df, aes(x = 1:length(x_imputed), y = x_imputed)) +
+  geom_line(color = "red") +
+  ggtitle("Imputed Variable")
+
+# Arrange the two line graphs side by side
+plot_grid(line1, line2, hist1, hist2, ncol = 4)
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Create non-normally distributed time series dataset with variability and 20% missing values
+n <- 1000
+ts_data <- data.frame(date = seq(as.Date("2021-01-01"), by = "day", length.out = n))
+ts_data$value <- rgamma(n, shape = 3, scale = 1)
+ts_data$value[sample(n, round(0.2*n))] <- NA
+
+# Perform traditional mean imputation of missing values in whole data
+ts_data_imp1 <- ts_data
+ts_data_imp1$value[is.na(ts_data_imp1$value)] <- mean(ts_data$value, na.rm = TRUE)
+
+# Perform rolling-mean imputation of missing values using the zoo package's rollapply function
+ts_data_imp2 <- ts_data
+ts_data_imp2$value <- rollapply(ts_data$value, width = 5, FUN = function(x) {
+  ifelse(all(is.na(x)), NA, mean(x, na.rm = TRUE))
+}, by.column = FALSE, align = "center", fill = NA)
+
+# Create histograms and line graphs for each imputation style
+hist1 <- ggplot(ts_data_imp1, aes(x = value)) + 
+  geom_histogram(fill = "cornflowerblue", color = "black", bins = 30) + 
+  ggtitle("Traditional Mean Imputation") + 
+  xlab("Value") + 
+  ylab("Frequency")
+hist2 <- ggplot(ts_data_imp2, aes(x = value)) + 
+  geom_histogram(fill = "orange", color = "black", bins = 30) + 
+  ggtitle("Rolling-Mean Imputation") + 
+  xlab("Value") + 
+  ylab("Frequency")
+line1 <- ggplot(ts_data_imp1, aes(x = date, y = value)) + 
+  geom_line(color = "cornflowerblue") + 
+  ggtitle("Traditional Mean Imputation") + 
+  xlab("Date") + 
+  ylab("Value")
+line2 <- ggplot(ts_data_imp2, aes(x = date, y = value)) + 
+  geom_line(color = "orange") + 
+  ggtitle("Rolling-Mean Imputation") + 
+  xlab("Date") + 
+  ylab("Value")
+
+# Combine histograms and line graphs using cowplot
+plot_grid(plot_grid(hist1, hist2, nrow = 1),
+          plot_grid(line1, line2, nrow = 1),
+          nrow = 2,
+          align = "v",
+          axis = "tb")
+
+
